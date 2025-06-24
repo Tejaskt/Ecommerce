@@ -10,9 +10,9 @@ const routes = require('./routes/index')
 // db
 connectDB()
 app.use(cors())
-app.use(morgan('dev'))
+app.use(morgan('dev')) //  log HTTP requests in the console for debugging
 app.use(express.json())
-app.use(express.urlencoded({extended:true}))
+app.use(express.urlencoded({extended:true})) // ?
 
 
 // routes

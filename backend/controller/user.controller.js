@@ -1,4 +1,4 @@
-const {User} = require('../Model/User')
+const {User} = require('../model/User')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 
@@ -30,6 +30,7 @@ const signUp = async(req,res) =>{
             token,
             role:'user'
         })
+        
         res.status(200).json({
             message:"User created Successfully!!"
         })
