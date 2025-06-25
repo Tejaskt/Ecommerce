@@ -75,4 +75,51 @@ const singleProduct = async (req, res) => {
     }
 }
 
-module.exports = { product, addProduct, singleProduct }
+const updateProduct = async(req,res)=>{
+    try{
+        let{id} = req.params
+        let{name,price,image,description,stock,brand}=req.body
+        let{token} = req.headers
+    
+        let decodedToken = jwt.verify(token,"supersecret")
+        let user = await User.findOne({email:decodedToken.email})
+
+        if(user){
+            const productUpdate = await Product.findByIdAndUpdate(id,{
+                name,price,brand,description,image,stock
+            },{ new: true })
+
+            return res.status(200).json({
+                message:"Product Updated Successfully!!",
+                product:productUpdate
+            })
+        }
+    }catch(error){
+        console.log(error)
+        res.status(500).json({ message: "Internal server error" })
+    }
+}
+
+
+const deleteProduct = async(req,res)=>{
+    try{
+        let{id} = req.params
+        let{token} = req.headers
+    
+        let decodedToken = jwt.verify(token,"supersecret")
+        let user = await User.findOne({email:decodedToken.email})
+
+        if(user){
+            const productDeleted = await Product.findByIdAndDelete(id)
+
+            return res.status(200).json({
+                message:"Product Deleted Successfully!!",
+            })
+        }
+    }catch(error){
+        console.log(error)
+        res.status(500).json({ message: "Internal server error" })
+    }
+}
+
+module.exports = { product, addProduct, singleProduct, updateProduct, deleteProduct }
