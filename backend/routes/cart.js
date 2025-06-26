@@ -1,9 +1,12 @@
 const express = require('express')
 const router = express.Router()
 const jwt = require('jsonwebtoken')
-const { cart } = require('../controller/cart.controller')
+const { cart , addToCart} = require('../controller/cart.controller')
 
 // route to get cart 
-router.get('/userCart',cart)
+router.get('/cart',cart)
+
+// route to add to cart
+router.post('/addToCart',addToCart)
 
 module.exports = router
