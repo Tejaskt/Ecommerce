@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken')
 const { Cart } = require('../model/Cart')
 const { User } = require('../model/User')
 const { Product } = require('../model/Product')
+const { product } = require('./product.controller')
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 const cart = async (req, res) => {
     try {
@@ -97,63 +99,63 @@ const addToCart = async (req, res) => {
 const addToCart = async (req, res) => {
     try {
 
-        const {quantity , productID} = req.body
-        if(!quantity || !productID){
-            return res.status(400).json({message:"Product Or Quantity is missing!!"})
+        const { quantity, productID } = req.body
+        if (!quantity || !productID) {
+            return res.status(400).json({ message: "Product Or Quantity is missing!!" })
         }
 
         const { token } = req.headers
-        let decodedToken = jwt.verify( token, "supersecret" )
+        let decodedToken = jwt.verify(token, "supersecret")
 
-        let user = await User.findOne({ email:decodedToken.email })
-        if(!user){
-            return res.status(400).json({message:"Invalid Credentials"})
+        let user = await User.findOne({ email: decodedToken.email })
+        if (!user) {
+            return res.status(400).json({ message: "Invalid Credentials" })
         }
 
         const product = await Product.findById(productID)
-        if(!product){ return res.status(400).json({message:"Product not found"})}
+        if (!product) { return res.status(400).json({ message: "Product not found" }) }
 
         let cart;
 
-        if(user.cart){
+        if (user.cart) {
             cart = await Cart.findById(user.cart)
 
             //if cart is not found even though user has cart ID
-            
-            if(!cart){
+
+            if (!cart) {
                 cart = await Cart.create({
-                    products:[{product:productID,quantity}],
-                    total:product.price*quantity,
+                    products: [{ product: productID, quantity }],
+                    total: product.price * quantity,
                 })
 
                 user.cart = cart._id
                 await user.save()
-            }else{
+            } else {
                 const exists = cart.products.some(
-                    (p)=> p.product.toString() === productID.toString()
+                    (p) => p.product.toString() === productID.toString()
                 )
 
-                if(exists){
-                    return res.status(409).json({message:"Go To Cart"})
+                if (exists) {
+                    return res.status(409).json({ message: "Go To Cart" })
 
                 }
-                cart.products.push({product:productID,quantity})
+                cart.products.push({ product: productID, quantity })
                 cart.total += product.price * quantity
-                await cart.save()  
+                await cart.save()
             }
-        }else{
+        } else {
             // First Time Cart Creation
 
             cart = await Cart.create({
-                products:[{product:productID,quantity}],
-                total:product.price * quantity,
+                products: [{ product: productID, quantity }],
+                total: product.price * quantity,
             })
 
             user.cart = cart._id
             await user.save()
         }
 
-        res.status(200).json({message:"Product Added to cart"})
+        res.status(200).json({ message: "Product Added to cart" })
 
     } catch (error) {
         console.log(error)
@@ -218,4 +220,60 @@ const updateCart = async (req, res) => {
         res.status(500).json({ message: "Internal server error" })
     }
 }
-module.exports = { cart, addToCart, updateCart }
+
+const payment = async (req, res) => {
+    try {
+        const { token } = req.headers
+        const decodedToken = jwt.verify(token, "supersecret")
+        const user = await User.findOne({ email: decodedToken.email }).populate({
+            path: 'cart',
+            populate: {
+                path: "products.product",
+                model: "Product"
+            }
+        })
+
+        if (!user || !user.cart || user.cart.products.length === 0) {
+            res.status(404).json({ message: "user or cart not found!!" })
+        }
+
+        // payment
+        const lineItems = user.cart.products.map(
+            (item) => {
+                return {
+                    price_data: {
+                        currency: "inr",
+                        product_data: {
+                            name: item.product.name,
+                        },
+                        unit_amount: item.product.price * 100,
+                    },
+                    quantity: item.quantity
+                }
+            }
+        )
+
+        const curentUrl = process.env.CLIENT_URL
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types:["card"],
+            line_items:lineItems,
+            mode:'payment',
+            success_url:`${curentUrl}/success`,
+            cancel_url:`${curentUrl}/cancel`
+        })
+
+        // empty card 
+        user.cart.products=[]
+        user.cart.total = 0
+        await user.cart.save()
+        await user.save()
+        res.status(200).json({
+            message:"get the payment url!!",
+            url:session.url
+        })
+    } catch (error) { 
+        console.log(error)
+        res.status(500).json({ message: "Internal server error" })
+    }
+}
+module.exports = { cart, addToCart, updateCart, payment }
