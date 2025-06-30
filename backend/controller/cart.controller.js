@@ -4,6 +4,7 @@ const { User } = require('../model/User')
 const { Product } = require('../model/Product')
 const { product } = require('./product.controller')
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+const sendEmail = require('../utils/userEmail')
 
 const cart = async (req, res) => {
     try {
@@ -261,6 +262,18 @@ const payment = async (req, res) => {
             success_url:`${curentUrl}/success`,
             cancel_url:`${curentUrl}/cancel`
         })
+
+
+        // send email to user 
+        await sendEmail(
+            user.email,
+            user.cart.products.map((item)=>({
+                name:item.product.name,
+                price:item.product.price
+            }))
+        )
+
+        
 
         // empty card 
         user.cart.products=[]
